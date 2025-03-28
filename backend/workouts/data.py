@@ -1,17 +1,22 @@
-from backend.utils.hevyapi import HevyAPI
+from backend.utils.client.hevyapi import HevyAPI
 import json
 import pandas as pd
+from backend.utils.client.db import DatabaseConnector
+from backend.utils.persister import Persister
+from backend.utils.logger import Logger
+
 
 class WorkoutData:
     def __init__(self):
         self.api = HevyAPI()
+        self.logger = Logger(__name__, self.__class__.__name__)
 
     def fetch_workouts(self):
         try:
             workouts = self.api.get_workouts()
             return workouts
         except Exception as e:
-            print(f"Error fetching workouts: {e}")
+            self.logger.logError(f"Error fetching workouts: {e}")
             return None
 
     def convert_to_dataframe(self):
@@ -24,12 +29,14 @@ class WorkoutData:
         try:
             # Assuming workouts is a list of dictionaries
             df = pd.DataFrame(workouts)
-            flattened_df = pd.json_normalize(df.to_dict(orient='records'))  # Flatten nested dictionaries if any
-            return flattened_df.columns
+            flattened_df = pd.json_normalize(df.to_dict(orient='records'))
+            return flattened_df.convert_dtypes()
         except Exception as e:
-            print(f"Error converting workouts to DataFrame: {e}")
+            self.logger.logError(f"Error converting workouts to DataFrame: {e}")
             return pd.DataFrame()
 
 workout_data = WorkoutData()
 df = workout_data.convert_to_dataframe()
-print(df)
+persister = Persister()
+persister.persist_workouts(df)
+print(df["workouts.exercises"])
